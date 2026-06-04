@@ -66,7 +66,7 @@ def generate_lyrics_with_gemini(prompt):
 - Verse 파트에서는 스네어(Snare) 사용을 최소화하고, 베이스와 코드에만 뎀보우(Dembow) 노트를 일부 사용하여 미니멀한 여백의 미를 줘요. <Minimal snare, partial dembow bass>
 - Chorus 파트에서는 정확하고 꽉 찬 타격감의 뎀보우 리듬을 터뜨려 완벽한 뭄바톤(Moombahton) 비트를 완성해요. <Full dembow rhythm, upbeat moombahton>
 - 악기를 무겁게 쌓지 않고, 보컬의 발음이 타악기처럼 쫀득하게 리듬을 타도록 가사의 글자 수를 세밀하게 맞춰요.
-3. 한영 혼용 훅(Hook): 귀에 확 꽂히는 명확한 멜로디를 위해, Chorus 파트에는 'Vibe', 'Hype', 'Chill' 등 쿨한 무드의 영단어를 한국어와 찰지게 섞어 중독성 있는 펀치라인을 만들어요.
+3. 한영 혼용 훅(Hook): 귀에 확 꽂히는 명확한 멜로디를 위해, Chorus 파트에는 'Vibe', 'Hype', 'Chill'이라는 단어 느낌의 쿨한 무드의 영단어 조사하여 다양하게 한국어와 찰지게 섞어 중독성 있는 펀치라인을 만들어요. 꼭 'Vibe', 'Hype', 'Chill' 단어가 들어갈 필요는 없어요.
 4. 이스터 에그 (행동 교차 룰): Verse 파트 중 한 곳에 반드시 '~할 겸' (예: 바람 쐴 겸, 생각 지울 겸 등)이라는 표현을 딱 한 번 자연스럽게 삽입해서 주인공의 무심하고 여유로운 태도를 연출해요.
 
 곡 중간(Bridge 이후 등)에 해당 장르를 가장 잘 나타내는 **<Instrumental Solo> (악기 솔로 구간)**를 최소 1회 이상 강제로 삽입해요.
@@ -91,7 +91,7 @@ def generate_lyrics_with_gemini(prompt):
 이 칸에는 해당 노래에 어울리는 보컬 스타일을 영어로 작성해주세요. 이때 톤과 스타일에 대해서는 자세하게 적어주세요.
 형식: [성별], [톤], [스타일], [솔로/듀엣/그룹 여부]
 * 예시: Female vocal, extremely low-pitched, dark contralto, very heavy chest voice, deep androgynous tone, resonant bassy female voice, husky and thick vocal, Solo.
-* 전체 내용은 200~250자로 구체적으로 작성할 것.
+* 전체 내용은 250~280자로 구체적으로 작성할 것.
 
 ###LYRICS###
 섹션별 가사: Intro, Chorus, Verse, Bridge, Outro 등으로 구분하여 가사를 작성해. 가사 외의 정보(구간 시간, 악기/분위기)는 반드시 영어로 < > 속에 넣어 표현해주세요.
