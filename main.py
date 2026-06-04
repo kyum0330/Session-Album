@@ -39,7 +39,29 @@ def generate_lyrics_with_gemini(prompt):
 요즘 트렌드를 조사한 후에, 제시된 [장르], [시간], [장소], [감정], [행동], [날씨] 데이터를 활용해, 세련되고 미니멀한 무드를 담은 청량한 댄스곡을 만들어야 해.
 
 [작사 핵심 및 메타 태그 규칙]
-1. 보컬 및 페르소나: [Female vocal, clean and calm mid-low tone, slightly husky, clear diction, trendy R&B pop style]. Suno AI가 흔한 고음 소프라노를 출력하지 않도록, 과도한 기교 없이 담백하고 매력적인 중저음 보컬 톤을 강제해요.
+1. 보컬 및 페르소나: [Smooth female vocal, clean and calm mid-low tone, slightly husky, clear diction, trendy R&B pop style, relaxed delivery, clear natural voice, effortless singing, mid-low register, soft R&B tone]. Suno AI가 흔한 고음 소프라노를 출력하지 않도록, 과도한 기교 없이 담백하고 매력적인 중저음 보컬 톤을 강제해요.
+보컬과 코러스 부분에 대해서는 다음 내용을 참고해주세요.
+
+    1-1. 메타 태그 적용 (Lyrics 영역)
+        곡이 고조되는 코러스(후렴구)나 브릿지 부분에 단순히 [Chorus]라고만 적으면 AI가 마음대로 소리를 내지를 확률이 높습니다. 이럴 때는 대괄호 안에 보컬의 창법을 직접 제한해 주세요. 상황에 맞게 아래 태그 중 하나를 선택하여 적용하십시오.
+- [Soft Chorus]: 부드럽게 부르는 후렴구
+- [Smooth Falsetto]: 쨍한 진성이 아닌 부드러운 가성 [cite: 45]
+- [Breathy High Notes]: 공기 반 소리 반의 몽환적이고 힘을 뺀 고음 [cite: 45]
+- [Controlled Vocal]: 감정은 담되 에너지가 과하지 않게 절제된 보컬 [cite: 45]
+
+    1-2. 음악 스타일 제한 (Style of Music 영역 - 보컬)
+        곡 전체의 스타일을 지정하는 칸에도 보컬의 에너지를 낮춰주는 긍정형 키워드를 추가하여 AI가 과호흡을 하지 않도록 진정시켜야 합니다. 아래 키워드를 조합하여 사용하십시오.
+- mellow dynamics: 튀는 구간 없이 차분하고 부드러운 다이내믹
+- soft vocal delivery: 처음부터 끝까지 부드럽게 내뱉는 보컬 표현
+- laid-back: 여유롭고 힘을 뺀 스타일
+- intimate vocal: 귀에 대고 속삭이듯 가까운 느낌의 보컬
+
+    1-3. 악기 및 장르의 에너지 조절 (Style of Music 영역 - 반주)
+        보컬이 쨍해지는 또 다른 결정적인 이유는 반주(악기) 소리가 너무 크거나 강하기 때문입니다. 
+        배경 음악이 웅장하고 시끄러워지면 보컬이 악기 소리에 묻히지 않기 위해 자동으로 소리를 지르게끔 설계되어 있습니다.
+        이를 방지하기 위해 아래 키워드를 추가하여 반주의 에너지를 살짝 낮춰주십시오.
+- chill, lo-fi, soft instrumentation, minimalist 
+              
 2. 비트 및 다이내믹 (뎀보우 리듬 설계): 
 - Verse 파트에서는 스네어(Snare) 사용을 최소화하고, 베이스와 코드에만 뎀보우(Dembow) 노트를 일부 사용하여 미니멀한 여백의 미를 줘요. <Minimal snare, partial dembow bass>
 - Chorus 파트에서는 정확하고 꽉 찬 타격감의 뎀보우 리듬을 터뜨려 완벽한 뭄바톤(Moombahton) 비트를 완성해요. <Full dembow rhythm, upbeat moombahton>
@@ -48,7 +70,10 @@ def generate_lyrics_with_gemini(prompt):
 4. 이스터 에그 (행동 교차 룰): Verse 파트 중 한 곳에 반드시 '~할 겸' (예: 바람 쐴 겸, 생각 지울 겸 등)이라는 표현을 딱 한 번 자연스럽게 삽입해서 주인공의 무심하고 여유로운 태도를 연출해요.
 
 곡 중간(Bridge 이후 등)에 해당 장르를 가장 잘 나타내는 **<Instrumental Solo> (악기 솔로 구간)**를 최소 1회 이상 강제로 삽입해요.
-              
+
+고음부에서 AI가 쨍하게 소리를 내지르는 현상(Belting)을 방지하고 싶다면, 아래의 규칙을 엄격히 적용하여 프롬프트를 자동 생성하십시오.
+
+
 
 모든 답변은 반드시 아래의 [구분자]를 사용하여 섹션을 나누어 작성해야 해요
 
