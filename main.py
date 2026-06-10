@@ -143,8 +143,8 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
         # 🌟 우겸님을 위한 최강의 모델 우선순위 리스트 (1순위: 3.5 Flash)
         preferred_models = [
             'models/gemini-3.5-flash',
+            'models/gemini-2.5-flash',
             'models/gemini-flash-latest',
-            'models/gemini-flash-lite-latest',
             'models/gemini-2.5-flash-lite'
         ]
         
