@@ -139,10 +139,33 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
 
 * 악기 구성(Instrument composition) : 웜하고 몽환적인 신스 패드, 리드미컬한 베이스라인, 섬세한 하이햇과 킥 드럼, 아르페지오 신스, 이모셔널한 신스 리드, 미니멀한 보컬 이펙트."""
 
-        full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
+full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
+    text = ""
+    
+    # 🌟 [자동 전환 로직 시작] 
+    try:
+        print("🚀 [1차 시도] 고성능 모델(Gemini 2.5 Flash)로 생성을 시도합니다...")
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(full_prompt)
         text = response.text
+        print("✅ 2.5 Flash 생성 성공!")
+        
+    except Exception as e:
+        print(f"⚠️ 2.5 Flash 에러 발생: {e}")
+        print("🔄 할당량이 소진되었거나 오류가 발생하여 1.5 Flash로 자동 전환합니다...")
+        
+        try:
+            print("🚀 [2차 시도] Gemini 1.5 Flash로 생성을 시도합니다...")
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(full_prompt)
+            text = response.text
+            print("✅ 1.5 Flash 생성 성공!")
+        except Exception as fallback_e:
+            print(f"❌ 1.5 Flash 마저 실패했습니다: {fallback_e}")
+            return {}
+    # 🌟 [자동 전환 로직 끝]
 
+    try:
         # 🌟 강력한 정규표현식: 제미나이가 어떤 특수문자나 띄어쓰기를 섞어놔도 깔끔하게 통일시킵니다.
         markers_base = ["DETAIL", "PURPOSE", "SUNO", "VOCAL", "LYRICS", "CLEAN_LYRICS", "TAG", "UPLOAD"]
         for m in markers_base:
