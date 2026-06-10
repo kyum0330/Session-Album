@@ -18,16 +18,14 @@ def get_random_item(data):
         return random.choice(all_items)
     elif isinstance(data, list):
         return random.choice(data)
+
 def is_unwanted_combination(genre1, genre2):
-
-    """ 원하지 않는 장르 조합인지 확인하는 함수입니다.순서에 상관없이 매칭되도록 검사합니다. """
-
+    """ 원하지 않는 장르 조합인지 확인하는 함수입니다. 순서에 상관없이 매칭되도록 검사합니다. """
     unwanted_pairs = {
         ("Liquid Drum & Bass", "City Pop"), ("Jersey Club", "Old-school Hip Hop"),
         ("Moombahton", "New Jack Swing"), ("Miami Bass", "Contemporary R&B"), ("Favela Funk", "Synth Pop"), 
         ("House", "Moombahton"), ("Liquid Drum & Bass", "Contemporary R&B"), ("Favela Funk", "City Pop"), ("UK Garage", "Old-school Hip Hop")
     }
-
     return (genre1, genre2) in unwanted_pairs or (genre2, genre1) in unwanted_pairs
     
 def generate_lyrics_with_gemini(prompt):
@@ -270,9 +268,10 @@ def main():
     except Exception as e:
         print(f"데이터 로드 실패: {e}")
         return
-# 🌟 무한 루프 방지를 위해 최대 재시도 횟수를 설정합니다.
-        max_retries = 100 
-        retry_count = 0
+        
+    # 🌟 무한 루프 방지를 위해 최대 재시도 횟수를 설정합니다. (들여쓰기 위치 수정됨)
+    max_retries = 100 
+    retry_count = 0
     
     while retry_count < max_retries:
         selected_genre1 = get_random_item(genres1)
@@ -283,13 +282,13 @@ def main():
             break
             
         retry_count += 1
-        print(f"⚠️ 원하지 않는 조합 발생 ({selected_genre1} + {selected_genre2}) -> 다시 뽑습니다.")
+        print(f"⚠️ 원하지 않는 조합 발생 ({selected_genre1}, {selected_genre2}) -> 다시 뽑습니다.")
 
     if retry_count == max_retries:
         print("❌ 유효한 장르 조합을 찾는 데 실패했습니다. 원하지 않는 조합(unwanted_pairs) 리스트가 너무 많거나 데이터가 부족한지 확인해 주세요.")
         return
 
-    # 🌟 두 장르를 조합한 최종 장르명 생성 (예: "R&B + House")
+    # 🌟 두 장르를 조합한 최종 장르명 생성 (예: "R&B, House")
     selected_genre = f"{selected_genre1}, {selected_genre2}"
     selected_time = get_random_item(times)
     selected_emotion1 = get_random_item(emotions1)
