@@ -39,7 +39,7 @@ def generate_lyrics_with_gemini(prompt):
 요즘 트렌드를 조사한 후에, 제시된 [장르], [시간], [장소], [감정], [행동], [날씨] 데이터를 활용해, 세련되고 미니멀한 무드를 담은 청량한 댄스곡을 만들어야 해.
 
 [작사 핵심 및 메타 태그 규칙]
-1. 보컬 및 페르소나: [​Smooth female vocal, clean and calm mid-low tone, clear diction, trendy R&B pop style, relaxed delivery, clear natural voice, effortless singing, mid-low register, soft R&B tone]. 
+1. 보컬 및 페르소나: [Smooth alto female vocal, deep calm voice, low octave, subdued pitch, clean natural voice, clear diction, effortless singing, gentle resonance, subtle vocal runs, relaxed delivery, mellow dynamics, soft instrumentation, chill R&B, Solo]. 
 Suno AI가 흔한 중-고음 소프라노를 출력하지 않도록, 과도한 기교 없이 담백하고 매력적인 중저음 보컬 톤을 강제해요. 보컬과 코러스 부분에 대해서는 다음 내용을 참고해주세요.
 
     1-1. 메타 태그 적용 (Lyrics 영역)
@@ -73,9 +73,11 @@ Suno AI가 흔한 중-고음 소프라노를 출력하지 않도록, 과도한 �
 
 곡 중간(Bridge 이후 등)에 해당 장르를 가장 잘 나타내는 **<Instrumental Solo> (악기 솔로 구간)**를 최소 1회 이상 강제로 삽입해요.
 
-고음부에서 AI가 쨍하게 소리를 내지르는 현상(Belting)을 방지하고 싶다면, 아래의 규칙을 엄격히 적용하여 프롬프트를 자동 생성하십시오.
+5. 고음부에서 AI가 쨍하게 소리를 내지르는 현상(Belting)을 방지하고 싶다면, 아래의 규칙을 엄격히 적용하여 프롬프트를 자동 생성하십시오.
 
-
+- 도입부/1절 (확실하게 깔아주는 저음): [Low Calm Female Vocal] 또는 [Deep Spoken Vocal]
+- 말하듯 힘을 완전히 빼는 파트: [Subdued Vocal]
+- 코러스/고음 진입 파트 (에너지 억제): [Controlled Alto Vocal] (음역대를 높이지 않고 중저음역대 안에서 에너지만 살짝 조절하도록 지시합니다.)
 
 모든 답변은 반드시 아래의 [구분자]를 사용하여 섹션을 나누어 작성해야 해요
 
