@@ -229,6 +229,7 @@ Suno AI가 흔한 중-고음 소프라노를 출력하지 않도록, 과도한 �
 
 ###SUNO###
 위 DETAIL 부분에 작성한 '장르, Tempo, 악기 구성, 분위기'를 음악 생성 AI(Suno)의 'Style of Music' 란에 바로 복사해 넣을 수 있도록, 영어 키워드 위주로 700~850자로 번역 및 요약해주세요.
+* [절대 규칙]: Suno의 Style 입력 한계는 1000자입니다. 따라서 띄어쓰기 포함하여 무조건 800자~900자 사이로 작성하고, 절대 1000자를 넘기지 마세요.
 이때, 보컬에 관련된 내용은 작성하지 마세요. (예: Melodic Electronic, Progressive House, 123 BPM, warm synth pad, emotional lead)
 
 ###VOCAL###
@@ -241,8 +242,8 @@ Suno AI가 흔한 중-고음 소프라노를 출력하지 않도록, 과도한 �
 섹션별 가사: Intro, Chorus, Verse, Bridge, Outro 등으로 구분하여 가사를 작성해. 가사 외의 정보(구간 시간, 악기/분위기)는 반드시 영어로 < > 속에 넣어 표현해주세요.
 가사 내 지시어 (Meta Tags) 예시: [Extremely low vocal], [Heavy and dark contralto singing]
 * 주의: 한국어 가사 구절 옆에 (U-ri-neun yak-sok...) 같은 로마자 발음 표기나 영어 번역을 절대 덧붙이지 마세요. 오직 순수 한국어와 영어 훅 조합으로만 채워야 합니다.
-
-이때 전체 내용은 줄바꿈, 띄어쓰기와 지시어, 가사를 모두 포함하여 모든 텍스트가 총 4000~4500자로 각 가사의 구간마다 상세하게 보컬의 발성 및 느낌을 잘 표현해주길 바래요.
+* [절대 규칙]: Suno의 Lyrics 입력 한계는 5000자입니다. 글자 수 초과를 막기 위해 전체 내용은 띄어쓰기와 지시어, 가사를 모두 포함하여 총 3500자 ~ 4500자 사이로 작성하세요. 절대 4900자를 넘기지 마세요.
+가사가 반복되더라도 축약하지 말고 모든 텍스트를 온전히 다 적어주세요.
 
 ###CLEAN_LYRICS###
 클린 가사: 위 세부 항목이나 음악 구조(< > 부분) 및 [ ] 메타태그가 모두 제외된, 순수 가사 내용만 복사하기 쉽게 적어주세요. 당연히 알파벳 발음 표기나 괄호 설명 등은 일절 포함되어서는 안 됩니다.
@@ -494,11 +495,46 @@ def main():
 3) [포맷 출력]: 확정한 아이디어를 바탕으로, 시스템 프롬프트에서 요구한 ###DETAIL### 부터 ###UPLOAD### 까지의 8가지 필수 구분자 포맷에 맞추어 완벽한 최종 결과물만 출력해.
 </Action_Steps>
 """
+    
     print(f"\n[1] 생성된 프롬프트: {final_prompt}")
-    print("\n[2] Gemini 가사 생성 중...")
     
-    result_data = generate_lyrics_with_gemini(final_prompt)
+    # --- 🌟 [글자 수 방어막 로직 시작] ---
+    max_retries = 5  # 최대 5번까지 재시도
+    result_data = {}
     
+    for attempt in range(max_retries):
+        print(f"\n[2] Gemini 가사 생성 중... (시도 {attempt + 1}/{max_retries})")
+        result_data = generate_lyrics_with_gemini(final_prompt)
+        
+        # 글자 수 측정
+        suno_content = result_data.get("suno", "")
+        lyrics_content = result_data.get("lyrics", "")
+        
+        suno_len = len(suno_content)
+        lyrics_len = len(lyrics_content)
+        
+        print(f"   -> 생성된 Style(Suno) 글자 수: {suno_len}자")
+        print(f"   -> 생성된 가사(Lyrics) 글자 수: {lyrics_len}자")
+        
+        # 조건 검사: Suno는 1000자 미만, Lyrics는 2500~4950자 사이 (안전 마진 50자)
+        if suno_len < 1000 and 2500 <= lyrics_len <= 4950:
+            print("   ✅ 글자 수 한계치 통과! 완벽합니다.")
+            break  # 조건에 맞으면 반복문 탈출
+        else:
+            print("   ⚠️ 글자 수 제한 초과 또는 미달! 다시 생성합니다.")
+            if suno_len >= 1000:
+                print("      - 사유: Style(Suno) 1000자 초과")
+            if lyrics_len > 4950:
+                print("      - 사유: 가사(Lyrics) 5000자 초과 위험")
+            if lyrics_len < 2500:
+                print("      - 사유: 가사(Lyrics)가 너무 짧음 (생략 발생 의심)")
+                
+    # 만약 5번을 다 시도했는데도 실패했다면 빈 데이터 방지
+    if not result_data.get("lyrics", "").strip():
+        print("❌ 유효한 길이의 데이터를 생성하는 데 실패했습니다. 파이프라인을 종료합니다.")
+        return
+    # --- 🌟 [글자 수 방어막 로직 끝] ---
+
     print("\n[3] Notion 저장 시도...")
     save_to_notion(current_date, selected_genre, final_prompt, result_data)
 
