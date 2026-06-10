@@ -35,15 +35,7 @@ def generate_lyrics_with_gemini(prompt):
     
     genai.configure(api_key=api_key)
     
-    try:
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        target_model = next((name for name in available_models if 'gemini-1.5-flash' in name), available_models[0] if available_models else None)
-        
-        if not target_model: return {}
-            
-        model = genai.GenerativeModel(target_model)
-        
-        system_instruction = """[멜로디 및 사운드 디자인 (Meta Tags) 강제 규칙]
+    system_instruction = """[멜로디 및 사운드 디자인 (Meta Tags) 강제 규칙]
 너는 감성을 자극하는 세계적인 엔터테인먼트 음반 회사의 천재적인 작사가 뿐 아니라 곡의 다이내믹을 설계하는 총괄 프로듀서에요.
 요즘 트렌드를 조사한 후에, 제시된 [장르], [시간], [장소], [감정], [행동], [날씨] 데이터를 활용해, 세련되고 미니멀한 무드를 담은 청량한 댄스곡을 만들어야 해.
 
@@ -139,7 +131,7 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
 
 * 악기 구성(Instrument composition) : 웜하고 몽환적인 신스 패드, 리드미컬한 베이스라인, 섬세한 하이햇과 킥 드럼, 아르페지오 신스, 이모셔널한 신스 리드, 미니멀한 보컬 이펙트."""
 
-full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
+    full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
     text = ""
     
     # 🌟 [자동 전환 로직 시작] 
@@ -202,7 +194,7 @@ full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
         return extracted
         
     except Exception as e:
-        print(f"Gemini 에러: {e}")
+        print(f"Gemini 데이터 파싱 에러: {e}")
         return {}
 
 # 🌟 가사 쪼개기 도우미 함수를 가장 바깥쪽으로 안전하게 뺐습니다!
@@ -218,7 +210,6 @@ def save_to_notion(date_str, genre, prompt, data_dict):
         print("❌ 저장할 가사(LYRICS) 데이터가 비어있어 Notion 호출을 취소합니다.")
         return
 
-    # 🌟 들여쓰기 위치를 올바르게 수정했습니다!
     headers = {
         "Authorization": f"Bearer {notion_token}",
         "Content-Type": "application/json",
