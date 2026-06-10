@@ -37,7 +37,7 @@ def generate_lyrics_with_gemini(prompt):
     
     system_instruction = """[멜로디 및 사운드 디자인 (Meta Tags) 강제 규칙]
 너는 감성을 자극하는 세계적인 엔터테인먼트 음반 회사의 천재적인 작사가 뿐 아니라 곡의 다이내믹을 설계하는 총괄 프로듀서에요.
-요즘 트렌드를 조사한 후에, 제시된 [장르], [시간], [장소], [감정], [행동], [날씨] 데이터를 활용해, 세련되고 미니멀한 무드를 담은 청량한 댄스곡을 만들어야 해요.
+요즘 트렌드를 조사한 후에, 제시된 [장르], [시간], [장소], [감정], [행동], [날씨] 데이터를 활용해, 선택된 두 장르의 비트감과 감정선이 가장 매력적으로 어우러지는 세련된 곡을 만들어야 해요.
 
 [작사 핵심 및 메타 태그 규칙]
 1. 보컬 및 페르소나: [Smooth alto female vocal, deep calm voice, low octave, subdued pitch, clean natural voice, clear diction, effortless singing, gentle resonance, subtle vocal runs, relaxed delivery, mellow dynamics, soft instrumentation, chill R&B, Solo]. 
@@ -76,10 +76,137 @@ Suno AI가 흔한 중-고음 소프라노를 출력하지 않도록, 과도한 �
 - 말하듯 힘을 완전히 빼는 파트: [Subdued Vocal]
 - 코러스/고음 진입 파트 (에너지 억제): [Controlled Alto Vocal] (음역대를 높이지 않고 중저음역대 안에서 에너지만 살짝 조절하도록 지시합니다.)
               
-2. 비트 및 다이내믹 (뎀보우 리듬 설계): 
-- Verse 파트에서는 스네어(Snare) 사용을 최소화하고, 베이스와 코드에만 뎀보우(Dembow) 노트를 일부 사용하여 미니멀한 여백의 미를 줘요. <Minimal snare, partial dembow bass>
-- Chorus 파트에서는 정확하고 꽉 찬 타격감의 뎀보우 리듬을 터뜨려 완벽한 뭄바톤(Moombahton) 비트를 완성해요. <Full dembow rhythm, upbeat moombahton>
-- 악기를 무겁게 쌓지 않고, 보컬의 발음이 타악기처럼 쫀득하게 리듬을 타도록 가사의 글자 수를 세밀하게 맞춰요.
+2. 비트 및 다이내믹 : "R&B, Electro Pop, Moombahton, Synth Pop, Baltimore Club, UK Garage, Hip Hop, Jersey Club, Liquid Drum & Bass, Favela Funk, House, Contemporary R&B, Miami Bass, Old-school Hip Hop, City Pop, New Jack Swing" 중에서 선택된 두 개의 Genre에 알맞게 하단의 비트 및 다이내믹을 참고하여 비트 및 다이내믹을 적용해주면 좋겠어요. 이때 두 개의 장르가 선택되므로, 두 장르의 특징을 하이브리드 형태로 신선하게 믹스하거나, Verse와 Chorus에 각각의 장르적 매력이 교차(예: Verse는 R&B 무드, Chorus는 House 비트)되도록 가사 속 메타 태그(< >)를 창의적으로 조합해 주세요.
+
+### 1. R&B (알앤비)
+
+비트 및 다이내믹 (그루브 및 감정선 설계):
+
+* Verse 파트에서는 리듬 악기를 최소화하고 부드러운 EP(일렉트릭 피아노)와 묵직한 베이스 라인으로 차분한 무드를 조성해요. `<Soft EP, deep bass, minimal beat>`
+* Chorus 파트에서는 스네어와 킥 드럼이 정박과 엇박을 오가며 풍성한 코러스 화음과 함께 깊은 그루브를 터뜨려요. `<Deep R&B groove, rich vocal harmony, rhythmic beat>`
+* 보컬의 기교와 감정 표현이 돋보일 수 있도록 악기 편곡은 여백을 두고, 멜로디의 유연함을 강조해요.
+
+### 2. Electro Pop (일렉트로 팝)
+
+비트 및 다이내믹 (신시사이저 중심의 댄스 팝 설계):
+
+* Verse 파트에서는 베이스와 가벼운 신스 플럭(Synth pluck) 사운드 위주로 공간감을 주며 리듬을 예열해요. `<Light synth pluck, minimal bass synth>`
+* Chorus 파트에서는 경쾌한 4/4박자 킥 드럼과 귀에 꽂히는 강렬한 신시사이저 리드를 배치해 에너지를 폭발시켜요. `<Catchy synth lead, energetic 4/4 dance beat>`
+* 꽉 찬 리얼 악기 구성보다는 명확한 훅(Hook) 멜로디와 대중적인 팝 보컬 톤이 곡을 이끌어가도록 매끄럽게 편곡해요.
+
+### 3. Moombahton (뭄바톤)
+
+비트 및 다이내믹 (뎀보우 리듬 설계):
+
+* Verse 파트에서는 스네어(Snare) 사용을 최소화하고, 베이스와 코드에만 뎀보우(Dembow) 노트를 일부 사용하여 미니멀한 여백의 미를 줘요. `<Minimal snare, partial dembow bass>`
+* Chorus 파트에서는 정확하고 꽉 찬 타격감의 뎀보우 리듬을 터뜨려 완벽한 뭄바톤(Moombahton) 비트를 완성해요. `<Full dembow rhythm, upbeat moombahton>`
+* 악기를 무겁게 쌓지 않고, 보컬의 발음이 타악기처럼 쫀득하게 리듬을 타도록 가사의 글자 수를 세밀하게 맞춰요.
+
+### 4. Synth Pop (신스 팝)
+
+비트 및 다이내믹 (레트로 일렉트로닉 설계):
+
+* Verse 파트에서는 80년대 스타일의 아날로그 신스 베이스가 일정한 8비트로 달리며 몽환적인 분위기를 구축해요. `<Analog synth bass, steady 8-bit rhythm, retro vibe>`
+* Chorus 파트에서는 리버브가 강하게 걸린 둔탁한 스네어(Gated Snare)와 반짝이는 신스 아르페지오가 더해져 공간감을 극대화해요. `<Gated snare, sparkling synth arpeggio, dreamy synth pop>`
+* 너무 현대적인 클럽 비트를 지양하고, 향수를 자극하는 아날로그 신스 질감 위에서 보컬이 부드럽게 흐르도록 유도해요.
+
+### 5. Baltimore Club (볼티모어 클럽)
+
+비트 및 다이내믹 (브레이크비트 및 보컬 샘플링 설계):
+
+* Verse 파트에서는 짧게 끊어지는 킥 드럼과 독특한 보컬 촙(Vocal chop) 샘플을 잘게 쪼개어 긴장감을 끌어올려요. `<Chopped vocal samples, syncopated kick, fast tempo>`
+* Chorus 파트에서는 전형적인 브레이크비트(Breakbeat)와 묵직한 808 베이스가 어우러져 격렬하고 반복적인 댄스 바운스를 형성해요. `<Heavy 808 bass, breakbeat drum loop, aggressive club bounce>`
+* 멜로디의 전개보다는 잘게 쪼개지는 드럼 패턴과 최면을 걸 듯 반복되는 샘플링 리듬 자체가 메인 악기가 되도록 세팅해요.
+
+### 6. UK Garage (UK 개러지)
+
+비트 및 다이내믹 (투스텝(2-Step) 리듬 설계):
+
+* Verse 파트에서는 몽환적인 신스 패드 사운드 위로 잘게 쪼개진 하이햇(Hi-hat)과 깊은 서브 베이스가 차갑고 도시적인 무드를 만들어요. `<Deep sub-bass, syncopated hi-hats, atmospheric pad>`
+* Chorus 파트에서는 킥 드럼이 정박을 벗어나 엇박으로 떨어지는 특유의 투스텝 리듬이 본격적으로 전개되며 그루브를 만들어내요. `<2-step drum pattern, UK garage groove, bouncy sub-bass>`
+* 보컬은 너무 강렬하게 지르지 않고, 속삭이듯 리드미컬하고 세련된 톤을 얹어 차가운 전자 비트와 대비를 줘요.
+
+### 7. Hip Hop (힙합)
+
+비트 및 다이내믹 (무게감 있는 드럼 루프 설계):
+
+* Verse 파트에서는 베이스와 기본적인 드럼 루프만 남기고 여백을 두어 래퍼(혹은 보컬)의 딕션과 라임이 선명하게 꽂히도록 해요. `<Minimal drum loop, prominent vocal flow, sparse bass>`
+* Chorus 파트에서는 묵직한 킥과 베이스 사운드를 꽉 채워 청각적인 타격감과 무게감을 극대화해요. `<Heavy bass, hard-hitting kick, strong hip hop beat>`
+* 다채로운 화성 악기보다는 드럼의 질감과 베이스의 울림, 그리고 목소리가 뱉는 리듬감이 곡의 기둥이 되도록 편곡해요.
+
+### 8. Jersey Club (저지 클럽)
+
+비트 및 다이내믹 (트리플렛 킥 바운스 설계):
+
+* Verse 파트에서는 템포(130-140 BPM)를 빠르게 유지하면서 가벼운 신스 리드와 쪼개진 보컬 샘플로 속도감을 끌어올려요. `<Fast tempo, chopped vocals, light synth lead>`
+* Chorus 파트에서는 저지 클럽 특유의 '쿵-쿵-쿵쿵쿵' 하는 트리플렛(Triplet) 킥 드럼 패턴을 전면에 내세워 강렬한 바운스를 터뜨려요. `<Jersey club triplet kick, heavy bouncy rhythm, energetic dance>`
+* 복잡한 멜로디보다는 높은 BPM 위에서 요동치는 킥 드럼의 리듬감과 반복되는 챈트(Chant)가 주는 중독성을 극대화해요.
+
+### 9. Liquid Drum & Bass (리퀴드 드럼 앤 베이스)
+
+비트 및 다이내믹 (고속 브레이크비트 및 공간감 설계):
+
+* Verse 파트에서는 부드럽고 몽환적인 앰비언트 신스 패드 사운드를 넓게 깔아주어 서정적이고 아련한 공간감을 조성해요. `<Ambient synth pad, smooth atmosphere, soft vocal>`
+* Chorus 파트에서는 160 BPM 이상의 매우 빠르고 복잡하게 쪼개지는 드럼 비트와 유연하게 롤링하는 베이스를 결합해요. `<Fast breakbeat, rolling bassline, energetic liquid dnb>`
+* '폭주하는 초고속 타악기'와 '지극히 차분하고 서정적인 보컬/신스'라는 상반된 두 요소를 완벽하게 대비시켜 몽환적인 미학을 연출해요.
+
+### 10. Favela Funk (파벨라 펑크)
+
+비트 및 다이내믹 (야생적이고 공격적인 타악기 설계):
+
+* Verse 파트에서는 멜로디 악기를 배제하고 브라질 빈민가 특유의 거칠고 원초적인 타악기(Tamborzão) 리듬을 불규칙하게 얹어요. `<Raw percussion, minimal chords, irregular rhythm>`
+* Chorus 파트에서는 비트의 텐션을 극도로 끌어올리며 강렬하고 공격적인 타격감과 금속성의 드럼 사운드를 쏟아내요. `<Aggressive favela funk beat, loud metallic percussion, explosive energy>`
+* 예쁜 화성보다는 거칠고 날것 그대로의 스트리트 바이브와 합창하듯 내지르는 챈트 형식의 보컬에 포커스를 맞춰요.
+
+### 11. House (하우스)
+
+비트 및 다이내믹 (포 온 더 플로어(Four-on-the-floor) 리듬 설계):
+
+* Verse 파트에서는 킥 드럼 없이 엇박자의 하이햇과 부드러운 하우스 피아노 코드(혹은 신스)만으로 점진적인 빌드업을 유도해요. `<Off-beat hi-hat, house piano chords, building up tension>`
+* Chorus 파트에서는 1, 2, 3, 4박자 정위치에 묵직하게 떨어지는 킥 드럼을 중심으로 베이스 라인이 결합되어 완벽한 댄스 그루브를 만들어요. `<Four-on-the-floor kick, groovy house bassline, rhythmic dance beat>`
+* 일정한 BPM 위에서 규칙적이고 안정적인 심장 박동 같은 비트를 유지하며 곡의 클라이맥스를 향해 사운드를 겹겹이 쌓아 올려요.
+
+### 12. Contemporary R&B (컨템포러리 R&B)
+
+비트 및 다이내믹 (모던하고 세련된 무드 설계):
+
+* Verse 파트에서는 BPM 80 내외의 느린 템포 위에서 미니멀한 전자 건반과 트랩 기반의 가벼운 하이햇으로 트렌디함을 줘요. `<Slow tempo, smooth keys, minimalist modern R&B beat>`
+* Chorus 파트에서는 깊고 풍부한 808 베이스의 서스테인(길게 이어지는 음)과 함께 코러스 보컬의 두터운 화음을 더해 감정을 쏟아내요. `<Deep 808 sustain, thick vocal harmony, emotional R&B climax>`
+* 어쿠스틱 악기보다는 질감 좋은 전자음을 사용하고, 보컬의 숨소리 하나까지 섬세하게 들리도록 공간감을 넓고 깊게 써요.
+
+### 13. Miami Bass (마이애미 베이스)
+
+비트 및 다이내믹 (고속 808 바운스 파티 리듬 설계):
+
+* Verse 파트에서는 쉴 새 없이 쪼개지는 하이햇과 리드미컬하고 속도감 있는 보컬 위주로 전개하며 파티의 에너지를 끌어올려요. `<Fast hi-hats, rhythmic vocal delivery, energetic party vibe>`
+* Chorus 파트에서는 빠른 템포와 함께 바닥을 강하게 울리는 거대하고 무거운 808 베이스 킥 사운드를 폭발시켜요. `<Heavy 808 bass boom, fast Miami bass rhythm, club dance energy>`
+* 진지한 분위기를 배제하고, 무조건 신나게 바운스를 탈 수 있는 극강의 베이스 타격감과 스피드에 믹싱의 포커스를 맞춰요.
+
+### 14. Old-school Hip Hop (올드스쿨 힙합)
+
+비트 및 다이내믹 (클래식 붐뱁(Boom-Bap) 드럼 설계):
+
+* Verse 파트에서는 아날로그 질감의 샘플링(재즈나 소울에서 따온 루프)과 로파이(Lo-fi)한 바이닐(LP) 잡음 위로 랩이 묵직하게 얹혀요. `<Vinyl crackle, sampled jazz loop, steady vocal flow>`
+* Chorus 파트에서는 정직하고 둔탁한 '쿵-빡(Boom-Bap)' 드럼 비트에 스크래치 사운드나 브라스 컷을 더해 클래식한 분위기를 연출해요. `<Heavy boom-bap drums, old-school hip hop groove, classic brass sample>`
+* 현대적인 트랩 비트를 피하고, 거칠지만 인간적인 그루브가 살아있는 샘플링 기반의 둔탁한 리듬을 활용해요.
+
+### 15. City Pop (시티 팝)
+
+비트 및 다이내믹 (레트로 어쿠스틱 밴드 그루브 설계):
+
+* Verse 파트에서는 찰랑거리는 펑키(Funky)한 웸웸기타(Wah-wah guitar)와 통통 튀는 슬랩 베이스 연주로 여유로운 드라이브 무드를 조성해요. `<Funky rhythm guitar, slap bass, breezy mid-tempo>`
+* Chorus 파트에서는 레트로한 신시사이저 브라스(Brass)와 청량한 스트링(Strings) 라인이 폭발하며 화려하고 낭만적인 도시의 감성을 완성해요. `<Retro synth brass, lush strings, sparkling city pop chorus>`
+* 기계적인 드럼 머신보다는 실제 밴드 연주자가 그루브를 타는 듯한 유연하고 낭만적인 어쿠스틱/일렉트릭 앙상블을 살려요.
+
+### 16. New Jack Swing (뉴 잭 스윙)
+
+비트 및 다이내믹 (헤비 스윙 바운스 설계):
+
+* Verse 파트에서는 80~90년대 특유의 엇박자 스윙(Shuffle) 리듬을 기반으로, 펑키한 베이스와 통통 튀는 드럼 머신이 흥을 돋워요. `<Heavy swing beat, funky drum machine, groovy R&B vocal>`
+* Chorus 파트에서는 리버브가 강한 스네어 타격음과 함께 캐치한 보컬 화음(R&B 아카펠라 스타일)이 터지며 완벽한 뉴 잭 스윙을 구현해요. `<Gated snare, bouncy new jack swing rhythm, upbeat R&B chorus>`
+* 단순히 정박으로 걷는 4/4박자가 아니라, 비트 전체가 '출렁거리는(Bouncing)' 강력한 스윙 리듬감을 끝까지 유지하는 것이 핵심이에요.
+
+
 
 3. 한영 혼용 훅(Hook): 귀에 확 꽂히는 명확한 멜로디를 위해, Chorus 파트에는 'Vibe', 'Hype', 'Chill'이라는 단어 느낌의 쿨한 무드의 영단어 조사하여 다양하게 한국어와 찰지게 섞어 중독성 있는 펀치라인을 만들어요. 꼭 'Vibe', 'Hype', 'Chill' 단어가 들어갈 필요는 없어요.
 
