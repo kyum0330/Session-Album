@@ -135,39 +135,46 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
     text = ""
     
    # 🌟 [자동 전환 로직 시작] 
+    text = ""
     try:
-        print("🚀 [1차 시도] 고성능 모델(Gemini 2.5 Flash)로 생성을 시도합니다...")
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(full_prompt)
-        text = response.text
-        print("✅ 2.5 Flash 생성 성공!")
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        print(f"🧐 [참고] 사용 가능한 모델 총 {len(available_models)}개 확인 완료")
         
-    except Exception as e:
-        print(f"⚠️ 2.5 Flash 에러 발생: {e}")
-        print("🔄 대체 모델(1.5 Flash 등)로 자동 전환합니다...")
+        # 🌟 우겸님을 위한 최강의 모델 우선순위 리스트 (1순위: 3.5 Flash)
+        preferred_models = [
+            'models/gemini-3.5-flash',
+            'models/gemini-flash-latest',
+            'models/gemini-flash-lite-latest',
+            'models/gemini-2.5-flash-lite'
+        ]
         
-        try:
-            # 🌟 스마트 추적: 내 API 키로 쓸 수 있는 진짜 모델 이름들을 구글에서 직접 가져옵니다.
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            print(f"🧐 [참고] 현재 접근 가능한 모델 목록: {available_models}")
+        success = False
+        for model_name in preferred_models:
+            # 리스트에 해당 모델이 있는지 유연하게 확인
+            matched = [m for m in available_models if model_name.split('/')[-1] in m]
             
-            # 1.5 플래시 계열의 정확한 풀네임을 찾아냅니다. (예: models/gemini-1.5-flash-latest 등)
-            fallback_model_name = next((name for name in available_models if '1.5-flash' in name), None)
-            
-            # 만약 1.5 플래시가 아예 없다면, 2.5가 아닌 사용 가능한 아무 모델이나 안전하게 선택합니다.
-            if not fallback_model_name:
-                fallback_model_name = next((name for name in available_models if '2.5' not in name), available_models[0])
+            if matched:
+                target = matched[0]
+                try:
+                    print(f"🚀 [{target}] 모델로 생성을 시도합니다...")
+                    model = genai.GenerativeModel(target)
+                    response = model.generate_content(full_prompt)
+                    text = response.text
+                    print(f"✅ {target} 생성 성공!")
+                    success = True
+                    break  # 성공하면 반복문을 즉시 탈출합니다!
+                except Exception as e:
+                    print(f"⚠️ {target} 실패 (사유: 할당량 초과 등) -> 다음 모델로 넘어갑니다.")
+            else:
+                print(f"⚠️ {model_name} 모델은 현재 목록에 없어 건너뜁니다.")
                 
-            print(f"🚀 [2차 시도] 찾은 대체 모델({fallback_model_name})로 생성을 시도합니다...")
-            model = genai.GenerativeModel(fallback_model_name)
-            response = model.generate_content(full_prompt)
-            text = response.text
-            print(f"✅ {fallback_model_name} 생성 성공!")
-            
-        except Exception as fallback_e:
-            print(f"❌ 대체 모델 마저 실패했습니다: {fallback_e}")
+        if not success:
+            print("❌ 준비된 모든 대체 모델이 할당량 초과로 실패했습니다. 자정이 지나길 기다리거나 결제 연동이 필요합니다.")
             return {}
             
+    except Exception as api_e:
+        print(f"❌ API 모델 리스트를 불러오지 못했습니다: {api_e}")
+        return {}
     # 🌟 [자동 전환 로직 끝]
 
     try:
