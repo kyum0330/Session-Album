@@ -142,10 +142,10 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
         
         # 🌟 우겸님을 위한 최강의 모델 우선순위 리스트 (1순위: 3.5 Flash)
         preferred_models = [
-            'models/gemini-3.5-flash',
-            'models/gemini-2.5-flash',
-            'models/gemini-flash-latest',
-            'models/gemini-2.5-flash-lite'
+            'models/gemini-3.5-flash',       # 1순위: 가장 똑똑한 최신 주력 모델 (퀄리티 최우선)
+            'models/gemini-3.1-flash-lite',  # 2순위: 1순위가 막히면 넉넉한 한도와 속도로 백업!
+            'models/gemini-2.5-flash',       # 3순위: 안정적인 2.5 버전
+            'models/gemini-flash-latest'
         ]
         
         success = False
