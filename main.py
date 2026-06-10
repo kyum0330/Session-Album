@@ -258,6 +258,7 @@ def save_to_notion(date_str, genre, prompt, data_dict):
         
 def main():
     try:
+        # 🌟 JSON 파일이 이제 순수 리스트 형태이므로, 뒤에 ["장르"] 같은 것을 붙이면 절대 안 됩니다!
         genres1 = load_data('data/genres1.json')
         genres2 = load_data('data/genres2.json')
         times = load_data('data/times.json')
@@ -267,9 +268,9 @@ def main():
         emotions2 = load_data('data/emotions2.json')
     except Exception as e:
         print(f"데이터 로드 실패: {e}")
-        return
+        return  # 🌟 에러가 나면 여기서 깔끔하게 멈추도록 return을 꼭 넣어주세요.
         
-    # 🌟 무한 루프 방지를 위해 최대 재시도 횟수를 설정합니다. (들여쓰기 위치 수정됨)
+    # 🌟 무한 루프 방지를 위해 최대 재시도 횟수를 설정합니다.
     max_retries = 100 
     retry_count = 0
     
