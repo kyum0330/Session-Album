@@ -134,7 +134,7 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
     full_prompt = f"{system_instruction}\n\n[작사 배경]\n{prompt}"
     text = ""
     
-    # 🌟 [자동 전환 로직 시작] 
+   # 🌟 [자동 전환 로직 시작] 
     try:
         print("🚀 [1차 시도] 고성능 모델(Gemini 2.5 Flash)로 생성을 시도합니다...")
         model = genai.GenerativeModel('gemini-2.5-flash')
@@ -144,17 +144,30 @@ Based on the feeling of 'Rough and Stopped Canvas on an Endless Clear Day' on Ma
         
     except Exception as e:
         print(f"⚠️ 2.5 Flash 에러 발생: {e}")
-        print("🔄 할당량이 소진되었거나 오류가 발생하여 1.5 Flash로 자동 전환합니다...")
+        print("🔄 대체 모델(1.5 Flash 등)로 자동 전환합니다...")
         
         try:
-            print("🚀 [2차 시도] Gemini 1.5 Flash로 생성을 시도합니다...")
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # 🌟 스마트 추적: 내 API 키로 쓸 수 있는 진짜 모델 이름들을 구글에서 직접 가져옵니다.
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            print(f"🧐 [참고] 현재 접근 가능한 모델 목록: {available_models}")
+            
+            # 1.5 플래시 계열의 정확한 풀네임을 찾아냅니다. (예: models/gemini-1.5-flash-latest 등)
+            fallback_model_name = next((name for name in available_models if '1.5-flash' in name), None)
+            
+            # 만약 1.5 플래시가 아예 없다면, 2.5가 아닌 사용 가능한 아무 모델이나 안전하게 선택합니다.
+            if not fallback_model_name:
+                fallback_model_name = next((name for name in available_models if '2.5' not in name), available_models[0])
+                
+            print(f"🚀 [2차 시도] 찾은 대체 모델({fallback_model_name})로 생성을 시도합니다...")
+            model = genai.GenerativeModel(fallback_model_name)
             response = model.generate_content(full_prompt)
             text = response.text
-            print("✅ 1.5 Flash 생성 성공!")
+            print(f"✅ {fallback_model_name} 생성 성공!")
+            
         except Exception as fallback_e:
-            print(f"❌ 1.5 Flash 마저 실패했습니다: {fallback_e}")
+            print(f"❌ 대체 모델 마저 실패했습니다: {fallback_e}")
             return {}
+            
     # 🌟 [자동 전환 로직 끝]
 
     try:
