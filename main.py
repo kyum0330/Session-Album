@@ -52,9 +52,10 @@ def generate_lyrics_with_gemini(full_prompt):
         
         preferred_models = [
             'models/gemini-3.5-flash',
+            'models/gemini-2.5-flash',
+            'models/gemini-1.5-flash',
             'models/gemini-3.1-flash-lite',
-            'models/gemini-2.0-flash-lite',
-            'models/gemini-1.5-flash-lite'
+            'models/gemini-2.0-flash-lite'
         ]
         
         success = False
