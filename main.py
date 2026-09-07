@@ -109,7 +109,7 @@ def generate_lyrics_with_gemini(full_prompt):
                 extracted[key] = part[:min_idx].strip()
         
         extracted["image"] = (
-            f" 아래 첨부된 [곡 상세 정보]와 [기획 의도]를 꼼꼼히 분석하여, 유튜브 영상용 16:9 썸네일 이미지를 하나 생성해 줘. 
+            f""" 아래 첨부된 [곡 상세 정보]와 [기획 의도]를 꼼꼼히 분석하여, 유튜브 영상용 16:9 썸네일 이미지를 하나 생성해 줘. 
 
 [필수 적용 조건]
 1. 화질 및 텍스트 배제: 노이즈가 없는 4K 이상의 초고화질(ISO 100 수준의 선명함)로 렌더링하고, 화면 내에 어떠한 텍스트, 영단어, 간판 글씨도 절대 들어가지 않게 해 줘.
@@ -120,7 +120,7 @@ def generate_lyrics_with_gemini(full_prompt):
 [곡 정보 붙여넣기]
 (이 아래부터 곡 상세 정보, 작사 배경, 기획 의도를 붙여넣으세요)\n\n"
             f"[곡 상세 정보]\n{extracted.get('detail', '')}\n\n"
-            f"[기획 의도]\n{extracted.get('purpose', '')}"
+            f"[기획 의도]\n{extracted.get('purpose', '')}"""
         )
 
         print("\n[4] 파싱된 섹션별 글자 수 (0이면 AI가 생성을 빼먹은 것입니다):")
