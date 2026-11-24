@@ -5,19 +5,55 @@ import re
 import time
 from datetime import datetime
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # ============================================================
 # 설정값 (Session-Album : Winter / Christmas Session)
 # ============================================================
 SYSTEM_INSTRUCTION_FILE = 'data/system_instruction_winter.txt'
+TIMES_FILE = 'data/times_winter.json'
+PLACES_FILE = 'data/places_winter.json'
 
-# 글자 수 검증 기준 (프롬프트: SUNO 800~900자 / LYRICS 3500~4500자)
-SUNO_MIN, SUNO_MAX = 700, 999        # Suno Style 한도 1000자 미만
-LYRICS_MIN, LYRICS_MAX = 2500, 4950  # Suno Lyrics 한도 5000자 미만
+MAX_OUTPUT_TOKENS = 16384   # 사고(thinking) 토큰 포함 모델 대비 넉넉하게 설정
+TEMPERATURE = 1.0           # Gemini 3.x 이상 계열 권장 기본값
+MAX_RETRIES = 3
+RETRY_WAIT_SEC = 10
 
-GENERATION_RETRIES = 5
-GENERATION_WAIT_SEC = 15
+# 글자 수 검증 기준
+# - Suno Style 한도: 1000자 미만 (권장 300~850자, 300자 미만은 경고만 출력)
+# - Suno Lyrics 한도: 5000자 미만 (1000자 미만 또는 4900자 초과는 치명적 오류)
+SUNO_WARN_MIN, SUNO_MAX = 300, 999
+LYRICS_MIN, LYRICS_MAX = 1000, 4900
+
+# 프로젝트 API 할당량(텍스트 출력 모델, RPD > 0) 기준 우선순위
+PREFERRED_MODELS = [
+    # 1군: 고품질 메인 (각 RPD 20, 총 100회)
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-4-hydrogen",
+    "gemini-3-flash",
+    "gemini-2.5-flash",
+    # 2군: 대용량 백업 (각 RPD 500, 총 1,000회)
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    # 3군: 보조 백업 (RPD 20) 및 자동 별칭
+    "gemini-2.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+]
+
+# IMAGE / CLEAN_LYRICS 모두 호환되도록 마커 등록 (CLEAN_LYRICS는 파이썬 후처리로 최종 보정)
+MARKERS_BASE = [
+    "DETAIL", "PURPOSE", "SUNO", "EXCLUDE_STYLES", "VOCAL",
+    "IMAGE", "LYRICS", "CLEAN_LYRICS", "TAG", "UPLOAD",
+]
+
+REQUIRED_SECTIONS = [
+    "Intro", "Verse 1", "Pre-Chorus 1", "Chorus 1", "Verse 2", "Pre-Chorus 2",
+    "Chorus 2", "Bridge", "Instrumental Solo", "Chorus 3", "Outro",
+]
+REQUIRED_FIELDS = ["detail", "purpose", "suno", "vocal", "lyrics", "tag", "upload"]
 
 # 겨울 시즌 장르 가중치 (기본값 1). 높을수록 자주 뽑혀요.
 WINTER_GENRE_WEIGHTS = {
@@ -53,6 +89,8 @@ UNWANTED_PAIRS = {
     frozenset(("Favela Funk", "Old-school Hip Hop")),
 }
 
+_MODEL_CACHE = None  # list_models() 결과 재사용
+
 
 # ============================================================
 # 데이터 로드 / 랜덤 선택
@@ -67,14 +105,30 @@ def load_text(file_path):
         return file.read()
 
 
+def clean_seed(text):
+    return text.replace("_", " ").strip()
+
+
 def get_random_item(data):
     if isinstance(data, dict):
         all_items = []
         for items_in_category in data.values():
             all_items.extend(items_in_category)
-        return random.choice(all_items)
+        return clean_seed(random.choice(all_items))
     elif isinstance(data, list):
-        return random.choice(data)
+        return clean_seed(random.choice(data))
+    return ""
+
+
+def get_distinct_emotions(emotions1_data, emotions2_data):
+    """emotions1과 emotions2에서 서로 다른 감정 키워드를 추출해요."""
+    emo1 = get_random_item(emotions1_data)
+    emo2 = get_random_item(emotions2_data)
+    for _ in range(20):
+        if emo1.lower() != emo2.lower():
+            break
+        emo2 = get_random_item(emotions2_data)
+    return emo1, emo2
 
 
 def get_weighted_genre(genres):
@@ -139,33 +193,14 @@ def build_system_instruction(raw_text, genre1, genre2, rule1, rule2):
     return text
 
 
-# ============================================================
-# Gemini 호출 및 파싱
-# ============================================================
-def pick_model_candidates(available_models, preferred_models):
-    """정확히 일치하는 모델을 먼저, 없으면 부분 일치(첫 번째)를 사용해요."""
-    candidates = []
-    for model_name in preferred_models:
-        if model_name in available_models:
-            candidates.append(model_name)
-            continue
-        short = model_name.split('/')[-1]
-        matched = [m for m in available_models if short in m]
-        if matched:
-            candidates.append(matched[0])
-        else:
-            print(f"⚠️ {model_name} 모델은 현재 계정 목록에 없어 건너뜁니다.")
-    return candidates
-
-
 def build_image_prompt(extracted):
-    return f"""아래 첨부된 [곡 상세 정보]와 [기획 의도]를 꼼꼼히 분석하여, 유튜브 영상용 16:9 썸네일 이미지를 하나 생성해 줘. 
+    return f"""아래 첨부된 [곡 상세 정보]와 [기획 의도]를 꼼꼼히 분석하여, 유튜브 영상용 16:9 썸네일 이미지를 하나 생성해 줘.
 
 [필수 적용 조건]
 1. 화질 및 텍스트 배제: 노이즈가 없는 4K 이상의 초고화질(ISO 100 수준의 선명함)로 렌더링하고, 화면 내에 어떠한 텍스트, 영단어, 간판 글씨도 절대 들어가지 않게 해 줘.
 2. 인물 성별 및 스타일링 자동 최적화: 곡의 보컬 성별과 서사를 분석하여 가장 잘 어울리는 주인공의 성별을 설정해 줘. 인물은 '수수하면서도 트렌디한 한국 20대 연예인(배우/아이돌) 스타일'로 묘사하되, 맑은 피부톤과 자연스러운 메이크업을 기본으로 해 줘.
 3. 분위기 기반 비주얼 매칭: 차분하고 서정적인 곡이라면 은은하고 깊이 있는 이목구비를, 트렌디하고 리드미컬한 곡이라면 선이 또렷하고 매혹적인 이목구비를 적용해 줘. 표정 역시 곡의 핵심 감정에 맞춰 과하지 않게 조율해 줘.
-4. 감성 시각화 및 의상: 곡의 날씨와 계절감(겨울/크리스마스 시즌)에 완벽히 들어맞는 세련된 '꾸안꾸(Effortless Cool)' 겨울 패션(니트, 코트, 머플러 등)을 입혀주고, 장르에서 느껴지는 온도와 핵심 감정선을 따뜻한 조명(트리 불빛, 가로등 등)과 색감으로 생생하게 시각화해 줘.
+4. 감성 시각화 및 의상: 겨울/크리스마스 시즌의 계절감에 완벽히 들어맞는 세련된 '꾸안꾸(Effortless Cool)' 겨울 패션(니트, 코트, 머플러 등)을 입혀주고, 장르에서 느껴지는 온도와 핵심 감정선을 따뜻한 조명(트리 불빛, 가로등 보케, 차가운 겨울 밤공기 대비 등)과 색감으로 생생하게 시각화해 줘.
 
 [곡 상세 정보]
 {extracted.get('detail', '')}
@@ -174,93 +209,240 @@ def build_image_prompt(extracted):
 {extracted.get('purpose', '')}"""
 
 
-def generate_lyrics_with_gemini(full_prompt):
+# ============================================================
+# 후처리 및 검증
+# ============================================================
+def build_clean_lyrics(raw_lyrics):
+    """LYRICS에서 [...]와 <...> 태그를 제거해 순수 가사 생성"""
+    cleaned = re.sub(r'\[[^\]]*\]', '', raw_lyrics)
+    cleaned = re.sub(r'<[^>]*>', '', cleaned)
+    lines = [re.sub(r'[ \t]{2,}', ' ', ln).strip() for ln in cleaned.split('\n')]
+    cleaned = '\n'.join(lines)
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return cleaned.strip()
+
+
+def post_process_data(extracted):
+    """사소한 포맷 오류를 파이썬에서 자동 보정"""
+    # 1. LYRICS: 마크다운 굵게(**) 제거, <...>를 [...]로 통일
+    lyrics = extracted.get("lyrics", "")
+    lyrics = lyrics.replace("**", "")
+    lyrics = re.sub(r'<([^>]+)>', r'[\1]', lyrics)
+    extracted["lyrics"] = lyrics.strip()
+
+    # 2. CLEAN_LYRICS: LYRICS에서 태그를 제거해 100% 일관된 순수 가사 생성
+    if extracted["lyrics"]:
+        extracted["clean_lyrics"] = build_clean_lyrics(extracted["lyrics"])
+
+    # 3. TAG: 중복 제거 및 최대 30개 정리 (기존 # 형식 유지)
+    raw_tag = extracted.get("tag", "")
+    tags, seen = [], set()
+    for t in raw_tag.split(","):
+        t = t.strip()
+        key = t.lstrip("#").strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            tags.append(t)
+    extracted["tag"] = ", ".join(tags[:30])
+
+    # 4. IMAGE: 프롬프트에서 ###IMAGE###를 생성하지 않았으면 기본 겨울 썸네일 프롬프트 조립
+    if not extracted.get("image", "").strip():
+        extracted["image"] = build_image_prompt(extracted)
+
+    return extracted
+
+
+def has_section(lyrics, name):
+    """[Verse 1], [Verse 1: ...] 형태 및 [Rhodes Solo] 같은 솔로 변형 허용"""
+    if name == "Instrumental Solo":
+        return re.search(r'\[[^\]]*\bsolo\b[^\]]*\]', lyrics, re.IGNORECASE) is not None
+    return re.search(r'\[\s*' + re.escape(name) + r'\b', lyrics, re.IGNORECASE) is not None
+
+
+def validate_result(extracted):
+    """
+    반환: (fatal_issues, warnings)
+    - fatal_issues: 재생성이 필요한 치명적 오류
+    - warnings: 로그 및 Notion 본문 메모만 남기고 재시도하지 않는 경미한 이슈
+    """
+    fatal, warnings = [], []
+
+    lyrics = extracted.get("lyrics", "")
+    clean_lyrics = extracted.get("clean_lyrics", "")
+    suno_len = len(extracted.get("suno", ""))
+    lyrics_len = len(lyrics)
+
+    # ── 치명적 오류 ──
+    empty_fields = [f for f in REQUIRED_FIELDS if not extracted.get(f, "").strip()]
+    if empty_fields:
+        fatal.append(f"비어 있는 필드(잘림 의심): {', '.join(empty_fields)}")
+
+    if suno_len > SUNO_MAX:
+        fatal.append(f"Style(Suno) 1000자 초과 ({suno_len}자)")
+    if lyrics_len and lyrics_len < LYRICS_MIN:
+        fatal.append(f"가사(Lyrics) 너무 짧음 ({lyrics_len}자)")
+    if lyrics_len > LYRICS_MAX:
+        fatal.append(f"가사(Lyrics) 5000자 초과 위험 ({lyrics_len}자)")
+
+    if lyrics:
+        missing = [sec for sec in REQUIRED_SECTIONS if not has_section(lyrics, sec)]
+        if missing:
+            fatal.append(f"섹션 누락: {', '.join(missing)}")
+
+    # ── 경고 (재시도 없음) ──
+    if 0 < suno_len < SUNO_WARN_MIN:
+        warnings.append(f"Style(Suno) 다소 짧음 ({suno_len}자)")
+
+    kyeom_count = len(re.findall(r'(?:^|\s)겸(?:\s|$|[,.!?~])', clean_lyrics))
+    if clean_lyrics and kyeom_count != 1:
+        warnings.append(f"이스터 에그 '~겸' 출현 {kyeom_count}회 (목표 1회)")
+
+    tag_count = len([t for t in extracted.get("tag", "").split(",") if t.strip()])
+    if extracted.get("tag", "").strip() and tag_count != 30:
+        warnings.append(f"해시태그 {tag_count}개 (목표 30개)")
+
+    return fatal, warnings
+
+
+# ============================================================
+# Gemini 호출 및 파싱 (google-genai SDK)
+# ============================================================
+def get_available_models(client):
+    global _MODEL_CACHE
+    if _MODEL_CACHE is None:
+        _MODEL_CACHE = [
+            m.name for m in client.models.list()
+            if m.supported_actions and "generateContent" in m.supported_actions
+        ]
+        print(f"🧐 [참고] 사용 가능한 모델 총 {len(_MODEL_CACHE)}개 확인 완료")
+    return _MODEL_CACHE
+
+
+def find_model_id(available_models, base_name):
+    """정확한 모델명 우선 매칭, 없으면 -preview 버전 매칭 (TTS/Live/Image 제외)"""
+    candidates = [base_name, f"{base_name}-preview"]
+    for cand in candidates:
+        for m in available_models:
+            if m == cand or m.endswith(f"/{cand}"):
+                return m
+    return None
+
+
+def parse_sections(text):
+    for m in MARKERS_BASE:
+        text = re.sub(r'[*_]*#+\s*' + m + r'\s*#*[*_]*', f'###{m}###', text, flags=re.IGNORECASE)
+
+    markers = [f"###{m}###" for m in MARKERS_BASE]
+    extracted = {m.lower(): "" for m in MARKERS_BASE}
+
+    for marker in markers:
+        if marker in text:
+            part = text.split(marker, 1)[1]
+            min_idx = len(part)
+            for other_marker in markers:
+                if other_marker != marker:
+                    idx = part.find(other_marker)
+                    if idx != -1 and idx < min_idx:
+                        min_idx = idx
+            key = marker.replace("#", "").lower()
+            extracted[key] = part[:min_idx].strip()
+
+    return post_process_data(extracted)
+
+
+def generate_lyrics_with_gemini(system_instruction, user_prompt):
+    """
+    반환: (결과 dict, status)
+    status: "ok" | "parse_error" | "api_error" | "no_model" | "no_key"
+    """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("🚨 GEMINI_API_KEY가 설정되지 않았습니다.")
-        return {}
+        return {}, "no_key"
 
-    genai.configure(api_key=api_key)
-    text = ""
+    client = genai.Client(api_key=api_key)
 
     try:
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        print(f"🧐 [참고] 사용 가능한 모델 총 {len(available_models)}개 확인 완료")
-
-        preferred_models = [
-            'models/gemini-3.5-flash',
-            'models/gemini-2.5-flash',
-            'models/gemini-1.5-flash',
-            'models/gemini-3.1-flash-lite',
-            'models/gemini-2.0-flash-lite'
-        ]
-
-        success = False
-        for target in pick_model_candidates(available_models, preferred_models):
-            try:
-                print(f"🚀 [{target}] 모델로 생성을 시도합니다...")
-                model = genai.GenerativeModel(target)
-                response = model.generate_content(full_prompt)
-                text = response.text
-                print(f"✅ {target} 생성 성공!")
-                success = True
-                break
-            except Exception as e:
-                print(f"⚠️ {target} 실패 (사유: {str(e)[:120]}) -> 다음 모델로 자동 전환합니다.")
-                time.sleep(3)
-
-        if not success:
-            print("❌ 준비된 모든 대체 모델이 실패했습니다. 할당량 초과라면 자정이 지나길 기다리거나 결제 연동이 필요합니다.")
-            return {}
-
+        available_models = get_available_models(client)
     except Exception as api_e:
-        print(f"❌ API 모델 리스트를 불러오지 못했습니다: {api_e}")
-        return {}
+        print(f"❌ API 모델 리스트 조회 실패: {type(api_e).__name__}")
+        return {}, "api_error"
+
+    text = ""
+    tried_any = False
+
+    for model_name in PREFERRED_MODELS:
+        target = find_model_id(available_models, model_name)
+        if not target:
+            continue
+
+        tried_any = True
+        try:
+            print(f"🚀 [{target}] 모델로 생성을 시도합니다...")
+            response = client.models.generate_content(
+                model=target,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    temperature=TEMPERATURE,
+                ),
+            )
+
+            finish_reason = ""
+            try:
+                finish_reason = str(response.candidates[0].finish_reason)
+            except Exception:
+                pass
+
+            text = response.text or ""
+            if not text.strip():
+                print(f"⚠️ {target} 빈 응답 (finish_reason={finish_reason or '알 수 없음'}) -> 다음 모델로 전환합니다.")
+                continue
+
+            if "MAX_TOKENS" in finish_reason:
+                print(f"⚠️ {target} 출력이 토큰 한도에서 잘렸을 수 있습니다 (finish_reason={finish_reason}). 검증 단계에서 확인합니다.")
+
+            print(f"✅ {target} 생성 성공!")
+            break
+
+        except Exception as e:
+            print(f"⚠️ {target} 실패 ({str(e)[:120]}) -> 다음 모델로 전환합니다.")
+            text = ""
+            time.sleep(2)
+
+    if not text.strip():
+        if not tried_any:
+            sample = ", ".join(available_models[:10])
+            print(f"❌ PREFERRED_MODELS 중 사용 가능한 모델이 없습니다. (목록 일부: {sample} ...)")
+            return {}, "no_model"
+        print("❌ 시도한 모든 모델이 할당량 초과 또는 오류로 실패했습니다.")
+        return {}, "api_error"
 
     try:
-        markers_base = ["DETAIL", "PURPOSE", "SUNO", "EXCLUDE_STYLES", "VOCAL", "LYRICS", "CLEAN_LYRICS", "TAG", "UPLOAD"]
-        for m in markers_base:
-            text = re.sub(r'[*_]*#+\s*' + m + r'\s*#*[*_]*', f'###{m}###', text, flags=re.IGNORECASE)
+        extracted = parse_sections(text)
 
-        markers = [f"###{m}###" for m in markers_base]
-        extracted = {m.lower(): "" for m in markers_base}
-        extracted["image"] = ""
-
-        for marker in markers:
-            if marker in text:
-                part = text.split(marker)[1]
-                min_idx = len(part)
-                for other_marker in markers:
-                    if other_marker != marker:
-                        idx = part.find(other_marker)
-                        if idx != -1 and idx < min_idx:
-                            min_idx = idx
-
-                key = marker.replace("#", "").lower()
-                extracted[key] = part[:min_idx].strip()
-
-        # 이미지 프롬프트는 파싱이 모두 끝난 뒤 한 번만 생성
-        extracted["image"] = build_image_prompt(extracted)
-
-        print("\n[4] 파싱된 섹션별 글자 수 (0이면 AI가 생성을 빼먹은 것입니다):")
+        print("\n[4] 파싱된 섹션별 글자 수:")
         for k, v in extracted.items():
             print(f" - {k}: {len(v)}자")
 
-        return extracted
+        return extracted, "ok"
 
     except Exception as e:
-        print(f"Gemini 데이터 파싱 에러: {e}")
-        return {}
+        print(f"❌ Gemini 데이터 파싱 에러: {e}")
+        return {}, "parse_error"
 
 
 # ============================================================
-# Notion 저장
+# Notion 저장 (Session-Album 스키마 — Weather 속성 없음)
 # ============================================================
 def get_chunks(text):
-    return [{"text": {"content": text[i:i+2000]}} for i in range(0, max(1, len(text)), 2000)]
+    if not text:
+        return [{"text": {"content": " "}}]
+    return [{"text": {"content": text[i:i+2000]}} for i in range(0, len(text), 2000)]
 
 
-def save_to_notion(date_str, genre, prompt, data_dict):
+def save_to_notion(date_str, genre, prompt, data_dict, notes=None):
     notion_token = os.environ.get("NOTION_TOKEN")
     database_id = os.environ.get("NOTION_DATABASE_ID")
 
@@ -274,33 +456,50 @@ def save_to_notion(date_str, genre, prompt, data_dict):
         "Notion-Version": "2022-06-28"
     }
 
-    children_blocks = [{"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "🎶 Gemini 생성 가사 및 곡 구성"}}]}}]
+    children_blocks = [{
+        "object": "block",
+        "type": "heading_2",
+        "heading_2": {"rich_text": [{"text": {"content": "🎶 Gemini 생성 가사 및 곡 구성"}}]}
+    }]
 
     for para in data_dict["lyrics"].split('\n\n'):
         para = para.strip()
         if not para:
             continue
-
-        if len(para) > 2000:
-            while len(para) > 2000:
-                split_idx = para.rfind('\n', 0, 2000)
-                if split_idx == -1:
-                    split_idx = para.rfind(' ', 0, 2000)
-                if split_idx == -1:
-                    split_idx = 2000
-
-                chunk = para[:split_idx].strip()
-                children_blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": chunk}}]}})
-                para = para[split_idx:].strip()
-
+        while len(para) > 2000:
+            split_idx = para.rfind('\n', 0, 2000)
+            if split_idx == -1:
+                split_idx = para.rfind(' ', 0, 2000)
+            if split_idx == -1:
+                split_idx = 2000
+            chunk = para[:split_idx].strip()
+            children_blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"text": {"content": chunk}}]}
+            })
+            para = para[split_idx:].strip()
         if para:
-            children_blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": para}}]}})
+            children_blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"text": {"content": para}}]}
+            })
 
     children_blocks.append({"object": "block", "type": "divider", "divider": {}})
-    children_blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": data_dict.get("tag", "")[:2000]}}]}})
+    children_blocks.append({
+        "object": "block",
+        "type": "paragraph",
+        "paragraph": {"rich_text": [{"text": {"content": data_dict.get("tag", "")[:2000] or " "}}]}
+    })
 
-    clean_lyrics_content = data_dict.get("clean_lyrics", "")
-    clean_lyrics_chunks = [{"text": {"content": clean_lyrics_content[i:i+2000]}} for i in range(0, max(1, len(clean_lyrics_content)), 2000)] if clean_lyrics_content else [{"text": {"content": " "}}]
+    if notes:
+        children_blocks.append({"object": "block", "type": "divider", "divider": {}})
+        children_blocks.append({
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"text": {"content": ("⚠️ 검증 메모: " + " / ".join(notes))[:2000]}}]}
+        })
 
     payload = {
         "parent": {"database_id": database_id},
@@ -313,8 +512,8 @@ def save_to_notion(date_str, genre, prompt, data_dict):
             "Exclude_styles": {"rich_text": [{"text": {"content": data_dict.get("exclude_styles", "")[:2000]}}]},
             "Image": {"rich_text": [{"text": {"content": data_dict.get("image", "")[:2000]}}]},
             "Vocal": {"rich_text": [{"text": {"content": data_dict.get("vocal", "")[:2000]}}]},
-            "Lyrics": {"rich_text": clean_lyrics_chunks},
-            "E_Lyrics": {"rich_text": get_chunks(data_dict.get("lyrics", " "))},
+            "Lyrics": {"rich_text": get_chunks(data_dict.get("clean_lyrics", ""))},
+            "E_Lyrics": {"rich_text": get_chunks(data_dict.get("lyrics", ""))},
             "Tag": {"rich_text": [{"text": {"content": data_dict.get("tag", "")[:2000]}}]},
             "Genre": {"rich_text": [{"text": {"content": genre}}]},
             "Upload": {"rich_text": [{"text": {"content": data_dict.get("upload", "")[:2000]}}]}
@@ -322,7 +521,7 @@ def save_to_notion(date_str, genre, prompt, data_dict):
         "children": children_blocks
     }
 
-    response = requests.post('https://api.notion.com/v1/pages', headers=headers, json=payload)
+    response = requests.post('https://api.notion.com/v1/pages', headers=headers, json=payload, timeout=30)
 
     print(f"📊 [결과] HTTP 상태 코드: {response.status_code}")
     if response.status_code == 200:
@@ -338,54 +537,47 @@ def main():
     try:
         genres1 = load_data('data/genres1.json')
         genres2 = load_data('data/genres2.json')
-        times = load_data('data/times.json')
+        times = load_data(TIMES_FILE)
         emotions1 = load_data('data/emotions1.json')
         actions = load_data('data/actions.json')
-        places = load_data('data/places.json')
+        places = load_data(PLACES_FILE)
         emotions2 = load_data('data/emotions2.json')
         genre_rules = load_data('data/genre_rules.json')
 
-        # 외부 텍스트 파일에서 시스템 프롬프트 불러오기
         raw_system_instruction = load_text(SYSTEM_INSTRUCTION_FILE)
-
     except Exception as e:
         print(f"데이터 로드 실패: {e}")
         return
 
     max_pick_retries = 100
-    pick_retry_count = 0
     selected_genre1 = selected_genre2 = None
 
-    while pick_retry_count < max_pick_retries:
-        selected_genre1 = get_weighted_genre(genres1)
-        selected_genre2 = get_weighted_genre(genres2)
-
-        if not is_unwanted_combination(selected_genre1, selected_genre2):
+    for _ in range(max_pick_retries):
+        g1 = get_weighted_genre(genres1)
+        g2 = get_weighted_genre(genres2)
+        if not is_unwanted_combination(g1, g2):
+            selected_genre1, selected_genre2 = g1, g2
             break
+        print(f"⚠️ 원하지 않는 조합 발생 ({g1}, {g2}) -> 다시 뽑습니다.")
 
-        pick_retry_count += 1
-        print(f"⚠️ 원하지 않는 조합 발생 ({selected_genre1}, {selected_genre2}) -> 다시 뽑습니다.")
-
-    if pick_retry_count == max_pick_retries:
+    if not selected_genre1:
         print("❌ 유효한 장르 조합을 찾는 데 실패했습니다.")
         return
 
-    # 장르 룰 확인 (없으면 경고 후 기본 문구 사용)
     rule_for_genre1 = genre_rules.get(selected_genre1)
     rule_for_genre2 = genre_rules.get(selected_genre2)
     if not rule_for_genre1:
         print(f"⚠️ '{selected_genre1}' 장르 룰이 genre_rules.json에 없어요. 기본 문구로 대체합니다.")
-        rule_for_genre1 = f"{selected_genre1}의 특성을 겨울 시즌의 포근한 질감으로 잘 살려서 편곡해줘."
+        rule_for_genre1 = f"- {selected_genre1}의 특성을 겨울 시즌의 포근한 질감으로 잘 살려서 편곡해."
     if not rule_for_genre2:
         print(f"⚠️ '{selected_genre2}' 장르 룰이 genre_rules.json에 없어요. 기본 문구로 대체합니다.")
-        rule_for_genre2 = f"{selected_genre2}의 특성을 겨울 시즌의 포근한 질감으로 잘 살려서 편곡해줘."
+        rule_for_genre2 = f"- {selected_genre2}의 특성을 겨울 시즌의 포근한 질감으로 잘 살려서 편곡해."
 
     selected_genre = f"{selected_genre1}, {selected_genre2}"
     selected_time = get_random_item(times)
-    selected_emotion1 = get_random_item(emotions1)
+    selected_emotion1, selected_emotion2 = get_distinct_emotions(emotions1, emotions2)
     selected_action = get_random_item(actions)
     selected_place = get_random_item(places)
-    selected_emotion2 = get_random_item(emotions2)
 
     now = datetime.now()
     current_date = now.strftime("%Y년 %m월 %d일")
@@ -397,79 +589,81 @@ def main():
         rule_for_genre1, rule_for_genre2
     )
 
-    user_prompt = f"""
-<Current_Status>
+    user_prompt = f"""<Current_Status>
 - 진행 단계: 초기 컨셉 브레인스토밍 및 구간별 감정 흐름을 반영한 최종 음원 데이터 완성
 - 타겟 결과물: 유튜브 및 오디오 플랫폼 업로드용 겨울/크리스마스 시즌 기획안 및 가사
 </Current_Status>
 
 <Brainstorming_Seed>
-- 장르: {selected_genre}
-- 배경/시간: {current_date}, {selected_time}
+- 장르 조합: {selected_genre} (메인: {selected_genre1} / 서브: {selected_genre2})
+- 기준 날짜 및 시간: {current_date}, {selected_time}
 - 시즌 컨텍스트: {season_context}
-- 장소 및 상황: {selected_place}에서 {selected_action} 하는 중
-- 감정선: {selected_emotion1} 분위기 속에서 느껴지는 {selected_emotion2}
+- 장소: {selected_place}
+- 행동·상태: {selected_action}
+- 감정선: Verse({selected_emotion1}) → Chorus({selected_emotion2})
 </Brainstorming_Seed>
 
 <Action_Steps>
 위의 <Brainstorming_Seed>를 바탕으로 다음 단계를 거쳐 작업을 수행해 줘.
 
-1) [내부 구상]: 이 키워드들을 엮어서 곡의 기승전결에 따른 구간별 감정 흐름(Emotional Flow)을 치밀하게 설계해. 시즌 컨텍스트에 담긴 크리스마스까지의 시기감(설렘/당일의 행복/연말의 아련함 등)이 곡 전체의 온도에 자연스럽게 녹아들게 해. 동시에 2026년 겨울 Z세대와 숏폼 플랫폼에서 자주 쓰이는 트렌디한 밈이나 힙한 영단어 슬랭을 3가지 도출하여 훅(Hook) 설계에 반영해 봐. (이 과정은 너의 내부 추론을 위한 것이며 출력하지 않아도 됨)
+1) [내부 구상]: 위 시드를 엮어 곡의 기승전결에 따른 구간별 감정 흐름(Emotional Flow)을 치밀하게 설계해. 시즌 컨텍스트에 담긴 크리스마스까지의 시기감(초겨울 설렘 / 카운트다운 / 당일의 행복 / 연말의 아련함 등)이 곡 전체의 온도에 자연스럽게 녹아들게 해. 동시에 겨울 시즌의 'Cozy Cool · Warm Chill' 무드에 어울리는 감각적인 1음절 영단어 훅 후보를 3가지 도출해 가장 잘 어울리는 표현을 확정해. (내부 추론은 출력하지 말 것)
 
 2) [스타일 및 가사 최적화]:
-   - ###SUNO### (Style of Music): 곡의 장르와 함께 곡을 관통하는 핵심 분위기와 감정을 묘사하는 간결한 영어 키워드를 포함할 것. 부정형 지시어는 절대 사용하지 마.
-   - ###EXCLUDE_STYLES### (제외할 스타일): sudden start, loud intro 등 곡에 원치 않는 음악적 방해 요소들을 쉼표로 구분해 작성할 것. 가사에 쓰는 영단어(훅 단어)는 이 칸에 넣지 마.
-   - ###LYRICS###: 네가 설계한 구간별 감정선이 Suno AI에 직접 전달되도록, 아래 3가지 규칙을 엄격히 지켜서 작성해.
-     a) [메타 태그 지휘]: 각 단락(Verse, Chorus 등) 시작 부분의 대괄호 [ ] 안에 곡의 구조뿐만 아니라 보컬의 감정, 창법, 분위기를 구체적으로 명시할 것. (예: [Smooth Relaxed Female Vocal], 고음부 절제를 위한 [Clear Smooth Falsetto] 또는 [Controlled Vocal])
-     b) [트렌드 융합]: 내부 구상에서 도출한 최신 밈 단어를 훅(Hook)에 반드시 1개 이상 자연스럽게 융합할 것.
-     c) [타격감 극대화]: 훅 메이킹 시, 한국어의 부드러운 자음(ㅇ, ㄹ) 뒤에 영어의 강한 파열음(P, B, D, K)이나 마찰음(V, Z, Sh)으로 끝나는 1음절 영단어를 배치하여 쫀득한 타격감과 리듬감을 새롭게 창조할 것.
+   - ###SUNO### (Style of Music): 곡의 장르, 템포(메인 장르 {selected_genre1} 기준), 핵심 겨울 질감 악기, 분위기를 간결한 영어 키워드로 작성할 것. 중요한 키워드를 앞쪽에 배치하고, 보컬 관련 내용과 부정형 지시어(no, without 등)는 절대 사용하지 마.
+   - ###EXCLUDE_STYLES### (제외할 스타일): sudden start, loud intro, heavy sleigh bell loops 등 곡에 원치 않는 음악적 방해 요소만 쉼표로 구분해 작성할 것. 가사에 쓰는 영단어(훅 단어)는 이 칸에 넣지 마.
+   - ###LYRICS###: 설계한 구간별 감정선이 Suno AI에 정확히 전달되도록 아래 규칙을 지켜 작성해.
+     a) [메타 태그 통일]: 모든 구조·악기·보컬 지시어는 대괄호([ ])만 사용할 것 (`< >` 및 마크다운 `**` 금지). 각 섹션 시작 부분에 보컬 창법과 분위기를 명시해.
+     b) [장면화]: 시드의 영어 단어를 그대로 가사에 복붙하지 말고, 입김·목도리·가로수 전구 같은 구체적인 겨울 장면과 행동으로 풀어서 표현해.
+     c) [훅 타격감]: 훅 메이킹 시 한국어의 부드러운 자음(ㅇ, ㄹ) 뒤에 영어의 파열음(P, B, D, K)이나 마찰음(F, V, Sh, Th)이 살아있는 1음절 겨울 영단어를 배치해 쫀득한 리듬감을 만들어.
 
-3) [포맷 출력]: 확정한 아이디어를 바탕으로, 시스템 프롬프트에서 요구한 ###DETAIL### 부터 ###UPLOAD### 까지의 9가지 필수 구분자 포맷에 맞추어 완벽한 최종 결과물만 출력해.
-</Action_Steps>
-"""
+3) [포맷 출력]: 확정한 아이디어를 바탕으로, 시스템 프롬프트에서 요구한 필수 구분자 포맷에 맞추어 최종 결과물만 출력해.
+</Action_Steps>"""
 
-    full_prompt = f"{system_instruction}\n\n[작사 배경]\n{user_prompt}"
-
-    print(f"\n[1] 생성된 프롬프트: {full_prompt[:500]} ... (중략) ... \n[토큰 최적화 완료!]")
+    print(f"\n[1] 생성된 시드 프롬프트:\n{user_prompt}\n")
     print(f"    - 선택 장르: {selected_genre}")
     print(f"    - 시즌 컨텍스트: {season_context}")
 
-    result_data = {}
+    best = None  # (score, data, fatal, warnings)
 
-    for attempt in range(GENERATION_RETRIES):
-        print(f"\n[2] Gemini 가사 생성 중... (시도 {attempt + 1}/{GENERATION_RETRIES})")
-        result_data = generate_lyrics_with_gemini(full_prompt)
+    for attempt in range(MAX_RETRIES):
+        print(f"\n[2] Gemini 가사 생성 중... (시도 {attempt + 1}/{MAX_RETRIES})")
+        result_data, status = generate_lyrics_with_gemini(system_instruction, user_prompt)
 
-        suno_len = len(result_data.get("suno", ""))
-        lyrics_len = len(result_data.get("lyrics", ""))
-
-        print(f"   -> 생성된 Style(Suno) 글자 수: {suno_len}자")
-        print(f"   -> 생성된 가사(Lyrics) 글자 수: {lyrics_len}자")
-
-        if SUNO_MIN <= suno_len <= SUNO_MAX and LYRICS_MIN <= lyrics_len <= LYRICS_MAX:
-            print("   ✅ 글자 수 한계치 통과! 완벽합니다.")
+        if status in ("no_key", "no_model", "api_error"):
+            print("🛑 재시도해도 해결되지 않는 상태라 생성을 중단합니다.")
             break
+
+        if status == "parse_error" or not result_data:
+            print("   ⚠️ 결과를 파싱하지 못했습니다. 재시도합니다.")
         else:
-            print("   ⚠️ 글자 수 제한 초과 또는 미달! 다시 생성합니다.")
-            if suno_len > SUNO_MAX:
-                print("      - 사유: Style(Suno) 1000자 초과")
-            if suno_len < SUNO_MIN:
-                print("      - 사유: Style(Suno)가 너무 짧음 (생성 누락 의심)")
-            if lyrics_len > LYRICS_MAX:
-                print("      - 사유: 가사(Lyrics) 5000자 초과 위험")
-            if lyrics_len < LYRICS_MIN:
-                print("      - 사유: 가사(Lyrics)가 너무 짧음 (생략 발생 의심)")
+            fatal, warnings = validate_result(result_data)
+            for w in warnings:
+                print(f"   ℹ️ 경고: {w}")
 
-            if attempt < GENERATION_RETRIES - 1:
-                print(f"   ⏳ API 할당량 보호를 위해 {GENERATION_WAIT_SEC}초 대기 후 재시도합니다...")
-                time.sleep(GENERATION_WAIT_SEC)
+            score = len(fatal) * 10 + len(warnings)
+            if result_data.get("lyrics", "").strip() and (best is None or score < best[0]):
+                best = (score, result_data, fatal, warnings)
 
-    if not result_data.get("lyrics", "").strip():
-        print("❌ 유효한 길이의 데이터를 생성하는 데 실패했습니다. 파이프라인을 종료합니다.")
+            if not fatal:
+                print("   ✅ 치명적 오류 없음! 검증 통과.")
+                break
+            print(f"   ⚠️ 검증 미달 ({' / '.join(fatal)})")
+
+        if attempt < MAX_RETRIES - 1:
+            print(f"   ⏳ {RETRY_WAIT_SEC}초 대기 후 재시도합니다...")
+            time.sleep(RETRY_WAIT_SEC)
+
+    if best is None:
+        print("❌ 유효한 데이터를 생성하지 못해 파이프라인을 종료합니다.")
         return
 
+    _, final_data, final_fatal, final_warnings = best
+    notes = [f"[오류] {x}" for x in final_fatal] + [f"[경고] {x}" for x in final_warnings]
+    if final_fatal:
+        print("⚠️ 모든 시도에서 치명적 오류가 남아, 이슈가 가장 적은 결과를 저장합니다.")
+
     print("\n[3] Notion 저장 시도...")
-    save_to_notion(current_date, selected_genre, user_prompt, result_data)
+    save_to_notion(current_date, selected_genre, user_prompt, final_data, notes)
 
 
 if __name__ == "__main__":
