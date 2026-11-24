@@ -11,9 +11,9 @@ from google.genai import types
 # ============================================================
 # 설정값 (Session-Album : Winter / Christmas Session)
 # ============================================================
-SYSTEM_INSTRUCTION_FILE = 'data/system_instruction_winter.txt'
-TIMES_FILE = 'data/times_winter.json'
-PLACES_FILE = 'data/places_winter.json'
+SYSTEM_INSTRUCTION_FILE = 'data/system_instruction.txt'
+TIMES_FILE = 'data/times.json'
+PLACES_FILE = 'data/places.json'
 
 MAX_OUTPUT_TOKENS = 16384   # 사고(thinking) 토큰 포함 모델 대비 넉넉하게 설정
 TEMPERATURE = 1.0           # Gemini 3.x 이상 계열 권장 기본값
