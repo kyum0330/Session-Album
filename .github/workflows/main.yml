@@ -3,8 +3,8 @@ name: Daily Music Prompt Generator
 # 언제 실행할지 설정하는 부분입니다.
 on:
   schedule:
-    # 매 2시간마다(매시 정각) 실행됩니다. (하루 12회)
-    - cron: '0 */2 * * *'
+    # 매 8시간마다(매시 정각) 실행됩니다. (하루 3회)
+    - cron: '0 */8 * * *'
 
   # 웹에서 수동으로 버튼을 눌러 바로 실행해 볼 수 있는 옵션입니다.
   workflow_dispatch:
